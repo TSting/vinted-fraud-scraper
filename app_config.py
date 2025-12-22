@@ -31,7 +31,7 @@ def get_config():
     config["BATCH_SIZE"] = int(os.getenv("BATCH_SIZE", "500"))
     
     # GCP Config
-    config["GOOGLE_CLOUD_PROJECT"] = os.getenv("GOOGLE_CLOUD_PROJECT")
+    config["GOOGLE_CLOUD_PROJECT"] = os.getenv("GOOGLE_CLOUD_PROJECT") or "ecom-agents"
     config["VERTEX_LOCATION"] = os.getenv("VERTEX_LOCATION", "europe-west1")
     config["FIRESTORE_PRODUCTS_COLLECTION"] = os.getenv("FIRESTORE_PRODUCTS_COLLECTION", "products")
     config["FIRESTORE_PROGRESS_COLLECTION"] = os.getenv("FIRESTORE_PROGRESS_COLLECTION", "batchProgress")

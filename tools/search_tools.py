@@ -20,29 +20,50 @@ def search_similar_products(image_bytes: bytes, limit: int = 5) -> List[Dict[str
     # Actually, let's update vision_client.py to support bytes.
     
     from vertexai.vision_models import Image
-    image = Image(image_bytes)
-    embeddings = vision.model.get_embeddings(
-        image=image,
-        dimension=1408 # Native dimension for multimodalembedding@001
-    )
+    import logging
+    logger = logging.getLogger("search_tools")
+    
+    logger.info(f"Generating embedding for {len(image_bytes)} bytes of type {type(image_bytes)}...")
+    
+    try:
+        image = Image(image_bytes)
+    except Exception as e:
+        logger.error(f"Failed to create Image object: {e}")
+        raise ValueError(f"Could not create Vertex AI Image from bytes: {e}")
+    
+    try:
+        embeddings = vision.model.get_embeddings(
+            image=image,
+            dimension=1408
+        )
+    except Exception as e:
+        logger.error(f"Vertex AI Embedding Error: {str(e)}")
+        raise
     
     if not embeddings or not embeddings.image_embedding:
+        logger.warning("No embeddings returned from Vertex AI")
         return []
     
     query_vector = embeddings.image_embedding
+    logger.info(f"✓ Generated embedding vector with {len(query_vector)} dimensions")
 
     # 2. Perform Vector Search in Firestore
     collection_name = config.get("FIRESTORE_PRODUCTS_COLLECTION", "products")
+    logger.info(f"Querying Firestore collection: {collection_name}")
     collection = db_client.db.collection(collection_name)
     
     # Use find_nearest for vector search
     # Requires a vector index on the 'embedding' field
-    vector_query = collection.find_nearest(
-        vector_field="embedding",
-        query_vector=Vector(query_vector),
-        distance_measure=DistanceMeasure.COSINE,
-        limit=limit
-    )
+    try:
+        vector_query = collection.find_nearest(
+            vector_field="embedding",
+            query_vector=Vector(query_vector),
+            distance_measure=DistanceMeasure.COSINE,
+            limit=limit
+        )
+    except Exception as e:
+        logger.error(f"Firestore vector query error: {e}")
+        raise
     
     results = []
     for doc in vector_query.stream():
@@ -51,5 +72,6 @@ def search_similar_products(image_bytes: bytes, limit: int = 5) -> List[Dict[str
         if "embedding" in data:
             del data["embedding"]
         results.append(data)
-        
+    
+    logger.info(f"✓ Found {len(results)} results from Firestore")
     return results
