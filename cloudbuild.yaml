@@ -1,0 +1,32 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _SERVICE_NAME: "ecom-visual-product-search"
+  _REGION: "europe-west4"
+  _REPO: "ecom"
+  _IMAGE: "${_REGION}-docker.pkg.dev/ecom-agents/${_REPO}/${_SERVICE_NAME}"
+
+steps:
+# 1. Build Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', '${_IMAGE}:$SHORT_SHA', '-t', '${_IMAGE}:latest', '.']
+
+# 2. Push beide tags
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_IMAGE}:$SHORT_SHA']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_IMAGE}:latest']
+
+# 3. Deploy Cloud Run Service naar nieuwe image
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - run
+    - deploy
+    - ${_SERVICE_NAME}
+    - --image=${_IMAGE}:$SHORT_SHA
+    - --region=${_REGION}
+    - --platform=managed
+    - --allow-unauthenticated  # Alleen als je wilt dat het publiek toegankelijk is
+    - --port=8080

@@ -1,0 +1,27 @@
+# ❌ Bestanden die NIET in je GitHub-repository mogen (voor veiligheid en netheid)
+
+# 🔐 Bevat API-sleutels – nooit uploaden naar GitHub
+config.py
+AI-agents-uitleg.docx
+test.py
+test2.py
+
+# 🧠 Python-cachebestanden die automatisch opnieuw worden gegenereerd
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 🧪 Testoutputs of tijdelijke data
+*.log
+*.tmp
+*.bak
+
+# 📦 Virtuele omgevingen (als je lokaal een venv gebruikt)
+venv/
+.env/
+.env
+
+# 🗑️ IDE-/Editor-specifieke instellingen
+.vscode/
+.idea/

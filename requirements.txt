@@ -1,0 +1,10 @@
+pandas==2.2.2
+openpyxl==3.1.2
+requests>=2.32.4
+python-dotenv>=1.0.0
+gunicorn==22.0.0
+uvicorn
+openai==1.99.9
+google-adk>=1.10.0
+litellm>=1.53
+python-docx==1.2.0

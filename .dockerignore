@@ -1,0 +1,18 @@
+# ❌ Bestanden die NIET mee mogen in de Docker-image (voor productie of testing)
+
+# 🔐 Bevat API-sleutels – wil je absoluut buiten je container houden
+config.py
+AI-agents-uitleg.docx
+
+# 🧠 Python-cachebestanden die automatisch opnieuw worden gegenereerd
+__pycache__/
+*.pyc
+
+# 📦 Locale packages/mappen die niet relevant zijn voor de container
+*.egg-info/
+*.egg
+*.pkl
+
+# 🗑️ IDE-/Editor-specifieke mappen (optioneel, VS Code of PyCharm)
+.vscode/
+.idea/
