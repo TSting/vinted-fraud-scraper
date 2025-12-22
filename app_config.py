@@ -33,6 +33,7 @@ def get_config():
     # GCP Config
     config["GOOGLE_CLOUD_PROJECT"] = os.getenv("GOOGLE_CLOUD_PROJECT") or "ecom-agents"
     config["VERTEX_LOCATION"] = os.getenv("VERTEX_LOCATION", "europe-west1")
+    config["FIRESTORE_DATABASE"] = os.getenv("FIRESTORE_DATABASE", "visualproduct")
     config["FIRESTORE_PRODUCTS_COLLECTION"] = os.getenv("FIRESTORE_PRODUCTS_COLLECTION", "products")
     config["FIRESTORE_PROGRESS_COLLECTION"] = os.getenv("FIRESTORE_PROGRESS_COLLECTION", "batchProgress")
     config["FIRESTORE_ERRORS_COLLECTION"] = os.getenv("FIRESTORE_ERRORS_COLLECTION", "processingErrors")

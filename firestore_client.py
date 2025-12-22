@@ -6,16 +6,12 @@ class FirestoreClient:
     def __init__(self):
         config = get_config()
         self.project_id = config.get("GOOGLE_CLOUD_PROJECT")
+        self.database = config.get("FIRESTORE_DATABASE", "visualproduct")
         self.products_collection = config.get("FIRESTORE_PRODUCTS_COLLECTION", "products")
         self.progress_collection = config.get("FIRESTORE_PROGRESS_COLLECTION", "batchProgress")
         self.errors_collection = config.get("FIRESTORE_ERRORS_COLLECTION", "processingErrors")
         
-        if not self.project_id:
-            # Fallback to default credentials usage if project not explicitly set, 
-            # but usually it's good to be explicit.
-            self.db = firestore.Client()
-        else:
-            self.db = firestore.Client(project=self.project_id)
+        self.db = firestore.Client(project=self.project_id, database=self.database)
 
     def get_product(self, product_id: str) -> Optional[Dict[str, Any]]:
         """

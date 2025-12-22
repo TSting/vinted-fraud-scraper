@@ -11,10 +11,16 @@ if os.path.exists(venv_python) and sys.executable != venv_python:
 from google.cloud import firestore
 from google.cloud.firestore_v1.vector import Vector
 from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
+from app_config import get_config
 
 try:
-    db = firestore.Client(project="ecom-agents")
-    collection = db.collection("products")
+    config = get_config()
+    db = firestore.Client(
+        project=config.get("GOOGLE_CLOUD_PROJECT"), 
+        database=config.get("FIRESTORE_DATABASE")
+    )
+    collection_name = config.get("FIRESTORE_PRODUCTS_COLLECTION", "products")
+    collection = db.collection(collection_name)
     
     # Get all products
     all_products = list(collection.limit(10).stream())

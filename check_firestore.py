@@ -10,16 +10,22 @@ if os.path.exists(venv_python) and sys.executable != venv_python:
 
 # Now we're in the venv
 from google.cloud import firestore
+from app_config import get_config
 
 try:
-    db = firestore.Client(project="ecom-agents")
+    config = get_config()
+    db = firestore.Client(
+        project=config.get("GOOGLE_CLOUD_PROJECT"), 
+        database=config.get("FIRESTORE_DATABASE")
+    )
     
     # Get count and sample
-    products = db.collection("products").limit(5).stream()
+    collection_name = config.get("FIRESTORE_PRODUCTS_COLLECTION", "products")
+    products = db.collection(collection_name).limit(5).stream()
     products_list = list(products)
     
-    print(f"✓ Connected to Firestore (project: ecom-agents)")
-    print(f"✓ Products collection has {len(products_list)} documents (showing first 5)")
+    print(f"✓ Connected to Firestore (project: {db.project}, database: {config.get('FIRESTORE_DATABASE')})")
+    print(f"✓ {collection_name} collection has {len(products_list)} documents (showing first 5)")
     
     if products_list:
         first_doc = products_list[0].to_dict()
