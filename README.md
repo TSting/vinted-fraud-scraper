@@ -73,12 +73,35 @@ Configureer een nightly trigger voor de Cloud Run Job om het proces elke nacht a
 ---
 
 ## 📂 Projectstructuur
-- `app.py`: CLI entry point.
+- `app.py`: CLI entry point voor batch processing.
 - `batch_processor.py`: Hoofd orchestrator voor batch logica & incremental checks.
 - `inriver_client.py`: InRiver API adapter.
 - `vision_client.py`: Vertex AI Embedding generator.
 - `firestore_client.py`: Firestore database adapter.
 - `image_utils.py`: Hashing en download utilities.
+- `tools/search_tools.py`: Vector search logica voor de agent.
+- `adk_app/agent.py`: ADK Visual Search Agent.
+
+---
+
+## 🔍 Vector Search Configureren
+Om de zoekfunctie in `adk-web` te gebruiken, moet er een **Vector Index** zijn in Firestore.
+
+1. Ga naar de Firebase/GCP Console -> Firestore -> Indexes.
+2. Klik op **Composite** -> **Create Index**.
+3. Collectie ID: `products` (of wat je geconfigureerd hebt).
+4. Velden:
+   - `embedding`: **Vector** (Dimension: 1408, Measure: COSINE)
+5. Wacht tot de index is opgebouwd.
+
+---
+
+## 🤖 Visual Search Agent (`adk web`)
+Je kunt met `adk web` interactief zoeken door een afbeelding te uploaden:
+1. Start `adk web`.
+2. Upload een afbeelding.
+3. Vraag: "Zoek vergelijkbare producten voor deze afbeelding".
+4. De agent gebruikt de `embedding` van de geüploade foto om de top 5 matches in Firestore te vinden.
 
 ---
 
