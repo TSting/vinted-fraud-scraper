@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 from inriver_client import InRiverClient
 from vision_client import VisionEmbeddingGenerator
 from firestore_client import FirestoreClient
-from image_utils import download_image, calculate_image_hash
+from image_utils import download_image, calculate_image_hash, is_valid_image
 from app_config import get_config
 
 class BatchProcessor:
@@ -81,25 +81,31 @@ class BatchProcessor:
             for idx, image_url in enumerate(image_urls):
                 doc_id = f"item_{item_id}_{idx}"
                 try:
-                    # 2. Incremental check via Hash
+                    # 2. Download and Validate
                     image_bytes = download_image(image_url)
                     if not image_bytes:
-                        raise ValueError(f"Could not download image {idx} from {image_url}")
+                        # download_image already logs video skip or error
+                        stats["skipped"] += 1
+                        continue
                     
+                    if not is_valid_image(image_bytes):
+                        print(f"  - [Image {idx}] Skip: Invalid image format at {image_url}")
+                        stats["skipped"] += 1
+                        continue
+                        
                     current_hash = calculate_image_hash(image_bytes)
                     
                     # Check Firestore
                     existing_doc = self.db.get_product(doc_id)
                     if existing_doc and existing_doc.get("image_hash") == current_hash:
                         # Skip if hash matches
-                        # print(f"  - Image {idx} hash unchanged.")
                         stats["skipped"] += 1
                         continue
 
                     # 3. Generate Embedding (if not dry run)
                     embedding = None
                     if not self.dry_run:
-                        embedding = self.vision.get_embedding(image_url)
+                        embedding = self.vision.get_embedding(image_bytes)
                         if not embedding:
                             raise ValueError(f"Failed to generate embedding for image {idx}")
                     

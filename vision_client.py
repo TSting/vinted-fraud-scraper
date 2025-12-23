@@ -19,22 +19,18 @@ class VisionEmbeddingGenerator:
         # Using multimodalembedding model which supports 1024 dimensions
         self.model = MultiModalEmbeddingModel.from_pretrained("multimodalembedding@001")
 
-    def get_embedding(self, image_url: str) -> Optional[List[float]]:
+    def get_embedding(self, image_bytes: bytes) -> Optional[List[float]]:
         """
-        Generates 1024-dimensional embedding for the image at the given URL.
+        Generates 1408-dimensional embedding for the given image bytes.
         """
         try:
-            # Download image bytes
-            image_bytes = download_image(image_url)
             if not image_bytes:
-                print(f"Failed to download image for embedding: {image_url}")
                 return None
 
             # Create Vertex AI Image object from bytes
-            # We assume regular image formats like JPEG/PNG
             image = Image(image_bytes)
 
-            # Generate embedding with dimension=1408 (1024 is not supported by @001)
+            # Generate embedding with dimension=1408
             embeddings = self.model.get_embeddings(
                 image=image,
                 dimension=1408
@@ -45,5 +41,5 @@ class VisionEmbeddingGenerator:
             return None
 
         except Exception as e:
-            print(f"Error generating embedding for {image_url}: {e}")
+            print(f"Error generating embedding: {e}")
             return None

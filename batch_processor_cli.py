@@ -4,7 +4,7 @@ from batch_processor import BatchProcessor
 
 def main():
     parser = argparse.ArgumentParser(description="Run Batch Processor for Visual Search index ingestion.")
-    parser.add_argument("--limit", type=int, default=2, help="Total number of products to process.")
+    parser.add_argument("--limit", type=int, default=500, help="Total number of products to process.")
     parser.add_argument("--dry-run", action="store_true", help="Run without writing to Firestore or generating embeddings.")
     
     args = parser.parse_args()
