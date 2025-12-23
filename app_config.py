@@ -38,4 +38,8 @@ def get_config():
     config["FIRESTORE_PROGRESS_COLLECTION"] = os.getenv("FIRESTORE_PROGRESS_COLLECTION", "batchProgress")
     config["FIRESTORE_ERRORS_COLLECTION"] = os.getenv("FIRESTORE_ERRORS_COLLECTION", "processingErrors")
     
+    # InRiver Filters
+    config["INRIVER_FILTER_FORMULA"] = os.getenv("INRIVER_FILTER_FORMULA", "C")
+    config["INRIVER_FILTER_MIN_YEAR"] = int(os.getenv("INRIVER_FILTER_MIN_YEAR", "2025"))
+    
     return config

@@ -26,11 +26,26 @@ class BatchProcessor:
             "failed": 0
         }
         
-        print(f"--- Processing Batch: start={start_index}, limit={limit} ---")
+        formula = self.config.get("INRIVER_FILTER_FORMULA", "C")
+        min_year = self.config.get("INRIVER_FILTER_MIN_YEAR", 2025)
         
-        # 1. Fetch products from InRiver
+        print(f"--- Processing Batch: start={start_index}, limit={limit} (Filter: {formula}, Year >= {min_year}) ---")
+        
+        # 1. Fetch products from InRiver with filters
         try:
-            products = self.inriver.get_products(start_index, limit)
+            data_criteria = [
+                {
+                    "fieldTypeId": "ItemBusinessFormula",
+                    "value": formula,
+                    "operator": "Equal"
+                },
+                {
+                    "fieldTypeId": "ItemSeasonYear",
+                    "value": min_year,
+                    "operator": "GreaterThanOrEqual"
+                }
+            ]
+            products = self.inriver.get_products(start_index, limit, data_criteria=data_criteria)
         except Exception as e:
             print(f"Failed to fetch batch from InRiver: {e}")
             stats["failed"] = limit

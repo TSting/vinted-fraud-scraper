@@ -3,8 +3,6 @@
 # 🔐 Bevat API-sleutels – nooit uploaden naar GitHub
 config.py
 AI-agents-uitleg.docx
-test.py
-test2.py
 
 # 🧠 Python-cachebestanden die automatisch opnieuw worden gegenereerd
 __pycache__/
@@ -25,3 +23,7 @@ venv/
 # 🗑️ IDE-/Editor-specifieke instellingen
 .vscode/
 .idea/
+
+# Test en debug bestanden
+debug_*.py
+test_*.py
