@@ -3,7 +3,7 @@ python-dotenv==1.2.1
 gunicorn==22.0.0
 uvicorn==0.40.0
 fastapi==0.123.10
-google-adk==1.22.0
+google-adk==1.21.0
 google-cloud-vision==3.11.0
 google-cloud-firestore==2.22.0
 google-cloud-aiplatform==1.130.0
