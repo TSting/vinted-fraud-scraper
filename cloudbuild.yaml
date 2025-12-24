@@ -3,6 +3,7 @@ options:
 
 substitutions:
   _SERVICE_NAME: "ecom-visual-product-search"
+  _JOB_NAME: "ecom-ingestion-job"
   _REGION: "europe-west4"
   _REPO: "ecom"
   _IMAGE: "${_REGION}-docker.pkg.dev/ecom-agents/${_REPO}/${_SERVICE_NAME}"
@@ -12,13 +13,13 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', '${_IMAGE}:$SHORT_SHA', '-t', '${_IMAGE}:latest', '.']
 
-# 2. Push beide tags
+# 2. Push image tags
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', '${_IMAGE}:$SHORT_SHA']
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', '${_IMAGE}:latest']
 
-# 3. Deploy Cloud Run Service naar nieuwe image
+# 3. Deploy Cloud Run Service (Web Agent)
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: gcloud
   args:
@@ -28,5 +29,26 @@ steps:
     - --image=${_IMAGE}:$SHORT_SHA
     - --region=${_REGION}
     - --platform=managed
-    - --allow-unauthenticated  # Alleen als je wilt dat het publiek toegankelijk is
+    - --allow-unauthenticated
     - --port=8080
+    - --set-env-vars
+    - "GOOGLE_CLOUD_PROJECT=ecom-agents,VERTEX_LOCATION=europe-west4,INRIVER_FILTER_FORMULA=Year gte 2024,INRIVER_FILTER_MIN_YEAR=2024,INRIVER_IMAGE_FIELD=MainImage,BATCH_SIZE=500,FIRESTORE_PRODUCTS_COLLECTION=productscostes,FIRESTORE_PROGRESS_COLLECTION=batchProgress,FIRESTORE_ERRORS_COLLECTION=processingErrors"
+
+# 4. Deploy Cloud Run Job (Ingestion)
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - run
+    - jobs
+    - deploy
+    - ${_JOB_NAME}
+    - --image=${_IMAGE}:$SHORT_SHA
+    - --region=${_REGION}
+    - --command
+    - "python"
+    - --args
+    - "batch_processor_cli.py"
+    - --args
+    - "--limit=5000"
+    - --set-env-vars
+    - "GOOGLE_CLOUD_PROJECT=ecom-agents,VERTEX_LOCATION=europe-west4,INRIVER_FILTER_FORMULA=Year gte 2024,INRIVER_FILTER_MIN_YEAR=2024,INRIVER_IMAGE_FIELD=MainImage,BATCH_SIZE=500,FIRESTORE_PRODUCTS_COLLECTION=productscostes,FIRESTORE_PROGRESS_COLLECTION=batchProgress,FIRESTORE_ERRORS_COLLECTION=processingErrors"

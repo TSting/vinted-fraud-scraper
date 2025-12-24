@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 REQUIRED_VARS = [
-    "IN_RIVER_BASE_URL",
     "ECOM_INRIVER_API_KEY"
 ]
 
@@ -20,7 +19,7 @@ def get_config():
         value = os.getenv(var)
         if not value:
             missing_vars.append(var)
-        config[var] = value
+    config["IN_RIVER_BASE_URL"] = os.getenv("IN_RIVER_BASE_URL", "https://api.inriver.com")
 
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")

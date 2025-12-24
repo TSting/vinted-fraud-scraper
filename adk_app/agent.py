@@ -169,7 +169,7 @@ def find_similar_items(query: str, tool_context=None) -> str:
 # Configure Agent
 visual_search_agent = LlmAgent(
     name="visual_search_agent",
-    model=Gemini(model="gemini-2.0-flash"),
+    model=Gemini(model="gemini-2.5-flash"),
     description="Finds similar products based on uploaded images.",
     instruction=(
         "Je bent een Visuele Zoekassistent voor The Sting. Wanneer een gebruiker een afbeelding uploadt, "
