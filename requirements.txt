@@ -3,9 +3,12 @@ python-dotenv==1.2.1
 gunicorn==22.0.0
 uvicorn==0.40.0
 fastapi==0.123.10
-google-adk==1.21.0
+google-adk==1.14.0
 google-cloud-vision==3.11.0
 google-cloud-firestore==2.22.0
-google-cloud-aiplatform==1.130.0
+google-cloud-aiplatform==1.112.0
 Pillow==12.0.0
 google-auth==2.14.1
+google-api-core==2.25.1
+google-cloud-core==2.4.3
+protobuf==4.25.8
