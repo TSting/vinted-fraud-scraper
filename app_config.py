@@ -22,7 +22,7 @@ def get_config():
     config["IN_RIVER_BASE_URL"] = os.getenv("IN_RIVER_BASE_URL", "https://api.inriver.com")
 
     if missing_vars:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        print(f"WARNING: Missing environment variables: {', '.join(missing_vars)}. The application might not function correctly until these are set.")
 
     # Optional variables with defaults
     # Optional variables with defaults

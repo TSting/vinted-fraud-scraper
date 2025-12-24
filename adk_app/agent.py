@@ -30,7 +30,7 @@ from google.adk.agents import LlmAgent
 from google.adk.models import Gemini
 
 # --- Pathing & Env ---
-ROOT = str(pathlib.Path(__file__).resolve().parents[2])
+ROOT = str(pathlib.Path(__file__).resolve().parents[1])
 if ROOT not in sys.path:
     sys.path.append(ROOT)
 
