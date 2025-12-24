@@ -1,7 +1,8 @@
 requests>=2.32.4
 python-dotenv>=1.0.0
 gunicorn==22.0.0
-uvicorn
+uvicorn>=0.30.0
+fastapi>=0.111.0
 google-adk>=1.10.0
 google-cloud-vision>=3.7.0
 google-cloud-firestore>=2.14.0
