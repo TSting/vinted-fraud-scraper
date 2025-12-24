@@ -9,6 +9,8 @@ __pycache__/
 *.pyc
 
 # 📦 Locale packages/mappen die niet relevant zijn voor de container
+venv/
+.git/
 *.egg-info/
 *.egg
 *.pkl
