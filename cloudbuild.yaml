@@ -34,19 +34,7 @@ steps:
     - --set-env-vars
     - "GOOGLE_CLOUD_PROJECT=ecom-agents,VERTEX_LOCATION=europe-west4,INRIVER_FILTER_FORMULA=Year gte 2024,INRIVER_FILTER_MIN_YEAR=2024,INRIVER_IMAGE_FIELD=MainImage,BATCH_SIZE=500,FIRESTORE_PRODUCTS_COLLECTION=productscostes,FIRESTORE_PROGRESS_COLLECTION=batchProgress,FIRESTORE_ERRORS_COLLECTION=processingErrors"
 
-# 4. Explicitly allow public access (Fix for 403 Forbidden)
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  entrypoint: gcloud
-  args:
-    - run
-    - services
-    - add-iam-policy-binding
-    - ${_SERVICE_NAME}
-    - --region=${_REGION}
-    - --member=allUsers
-    - --role=roles/run.invoker
-
-# 5. Deploy Cloud Run Job (Ingestion)
+# 4. Deploy Cloud Run Job (Ingestion)
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: gcloud
   args:
