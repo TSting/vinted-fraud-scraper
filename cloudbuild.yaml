@@ -47,6 +47,8 @@ steps:
     - ${_JOB_NAME}
     - --image=${_IMAGE}:$SHORT_SHA
     - --region=${_REGION}
+    - --cpu=4
+    - --memory=4Gi
     - --command
     - "python"
     - --args
