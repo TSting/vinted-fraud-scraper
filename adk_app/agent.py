@@ -215,9 +215,20 @@ def find_similar_items(query: str, tool_context=None) -> str:
 
         # Perform Search (with potentially cropped image)
         logger.info(f"Starting final search with {len(image_bytes)} bytes...")
-        results, _ = search_similar_products(image_bytes, query=query, limit=5, auto_crop=False)
+        results, _ = search_similar_products(image_bytes, query=query, limit=10, auto_crop=False)
+        
+        # Deduplicate by item_code - keep only the first occurrence (highest confidence)
+        seen_item_codes = set()
+        deduplicated_results = []
+        for item in results:
+            item_code = item.get("item_code", "N/A")
+            if item_code not in seen_item_codes:
+                seen_item_codes.add(item_code)
+                deduplicated_results.append(item)
+        
+        results = deduplicated_results
             
-        logger.info(f"✓ Found {len(results)} similar products")
+        logger.info(f"✓ Found {len(results)} similar products (after deduplication)")
         
         crop_msg = ""
         if was_cropped:
