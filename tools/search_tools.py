@@ -18,11 +18,22 @@ def _get_clients():
         _DB_CLIENT = FirestoreClient()
     return _VISION_CLIENT, _DB_CLIENT
 
-def search_similar_products(image_bytes: bytes, query: str = None, limit: int = 5) -> List[Dict[str, Any]]:
+def search_similar_products(image_bytes: bytes, query: str = None, limit: int = 5, auto_crop: bool = True) -> tuple[List[Dict[str, Any]], bool]:
     """
     Takes image bytes, generates an embedding (optionally guided by a query), 
     and finds the nearest matches in Firestore.
+    
+    Returns (results, was_cropped).
     """
+    from image_utils import crop_screenshot_bottom
+    
+    was_cropped = False
+    if auto_crop:
+        image_bytes, was_cropped = crop_screenshot_bottom(image_bytes)
+        if was_cropped:
+            import logging
+            logger = logging.getLogger("search_tools")
+            logger.info("Image identified as screenshot and auto-cropped.")
     config = get_config()
     vision, db_client = _get_clients()
     
@@ -93,4 +104,4 @@ def search_similar_products(image_bytes: bytes, query: str = None, limit: int = 
         results.append(data)
     
     logger.info(f"✓ Found {len(results)} relevant results from Firestore")
-    return results
+    return results, was_cropped

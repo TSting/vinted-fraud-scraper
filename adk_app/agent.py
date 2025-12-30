@@ -43,6 +43,7 @@ except ImportError:
     pass
 
 from tools.search_tools import search_similar_products
+from image_utils import detect_clothing_items, crop_to_box
 
 def find_similar_items(query: str, tool_context=None) -> str:
     """
@@ -127,14 +128,98 @@ def find_similar_items(query: str, tool_context=None) -> str:
         logger.info(f"✓ Image ready ({len(image_bytes)} bytes). Starting Firestore search...")
         
         # Perform Vector Search with query context
-        results = search_similar_products(image_bytes, query=query, limit=5)
+        results, was_cropped = search_similar_products(image_bytes, query=query, limit=5, auto_crop=False)
         
-        if not results:
-            logger.info("No similar products found in Firestore")
-            return "Geen vergelijkbare producten gevonden in de database."
+        # --- NEW: Smart Detection Flow ---
+        # We only run detection if the user hasn't already specified what they want in the query
+        # or if we want to be proactive about screenshots/multi-items.
+        
+        # Check if we should run detection (heuristic: tall aspect ratio or empty query)
+        img_outline = []
+        try:
+            from PIL import Image
+            import io
+            img = Image.open(io.BytesIO(image_bytes))
+            w, h = img.size
+            if h / w > 1.25 or not query:
+                logger.info("Tall image or empty query detected. Running object detection...")
+                detected_items = detect_clothing_items(image_bytes)
+                
+                if len(detected_items) > 1:
+                    logger.info(f"Found {len(detected_items)} items. Checking for clarification...")
+                    
+                    # Try to see if query matches one of the labels or descriptions
+                    matched_item = None
+                    if query:
+                        query_lower = query.lower()
+                        # Simple synonym map for better Dutch/English matching if Gemini slips up
+                        synonyms = {
+                            "trui": ["sweater", "pullover", "knitwear", "trui", "vest"],
+                            "rok": ["skirt", "rok"],
+                            "broek": ["pants", "trousers", "jeans", "broek", "shorts"],
+                            "blouse": ["blouse", "shirt", "top"],
+                            "schoenen": ["shoes", "boots", "laarzen", "schoenen", "sneakers"]
+                        }
+                        
+                        for item in detected_items:
+                            label = item['label'].lower()
+                            description = item['description'].lower()
+                            
+                            # 1. Direct label match
+                            if label in query_lower or query_lower in label:
+                                matched_item = item
+                                logger.info(f"Direct label match: {label}")
+                                break
+                            
+                            # 2. Description match
+                            if query_lower in description:
+                                matched_item = item
+                                logger.info(f"Description match: {description}")
+                                break
+                                
+                            # 3. Synonym match
+                            for Dutch, eng_list in synonyms.items():
+                                if Dutch in query_lower:
+                                    if any(s in label for s in eng_list):
+                                        matched_item = item
+                                        logger.info(f"Synonym match: {label} via {Dutch}")
+                                        break
+                            if matched_item:
+                                break
+                    
+                    if not matched_item:
+                        # Return clarification message
+                        item_list = "\n".join([f"- **{item['label']}** ({item['description']})" for item in detected_items])
+                        logger.info("No clear match found, asking for clarification.")
+                        return (
+                            f"Ik zie meerdere kledingstukken op deze afbeelding:\n{item_list}\n\n"
+                            "Om je de beste resultaten te geven: **welk van deze items wil je dat ik zoek?**"
+                        )
+                    else:
+                        logger.info(f"✓ Match confirmed for item '{matched_item['label']}'. Cropping...")
+                        image_bytes = crop_to_box(image_bytes, matched_item['box_2d'])
+                        was_cropped = True
+                elif len(detected_items) == 1:
+                    logger.info(f"Found 1 item: {detected_items[0]['label']}. Cropping...")
+                    image_bytes = crop_to_box(image_bytes, detected_items[0]['box_2d'])
+                    was_cropped = True
+                else:
+                    logger.info("No items detected by Gemini. Proceeding with full image.")
+        except Exception as detection_err:
+            logger.error(f"Detection/Cropping failed: {detection_err}")
+            # Fallback to original image if detection fails
+
+        # Perform Search (with potentially cropped image)
+        logger.info(f"Starting final search with {len(image_bytes)} bytes...")
+        results, _ = search_similar_products(image_bytes, query=query, limit=5, auto_crop=False)
             
         logger.info(f"✓ Found {len(results)} similar products")
-        output = "We hebben het volgende item gevonden dat overeenkomt met je geüploade afbeelding:\n\n"
+        
+        crop_msg = ""
+        if was_cropped:
+            crop_msg = "*(We hebben de afbeelding automatisch bijgesneden om UI-elementen te verwijderen voor een beter resultaat.)*\n\n"
+            
+        output = f"{crop_msg}We hebben het volgende item gevonden dat overeenkomt met je geüploade afbeelding:\n\n"
         for item in results:
             # Resolve name from nested dictionary
             names = item.get("name", {})
@@ -172,10 +257,13 @@ visual_search_agent = LlmAgent(
     model=Gemini(model="gemini-2.5-flash"),
     description="Finds similar products based on uploaded images.",
     instruction=(
-        "Je bent een Visuele Zoekassistent voor The Sting. Wanneer een gebruiker een afbeelding uploadt, "
-        "gebruik dan altijd de tool 'find_similar_items' om de beste matches in onze Firestore-database te vinden. "
-        "Reageer altijd VOLLEDIG in het Nederlands. Gebruik de specifieke output van de tool en voeg zelf "
-        "geen extra Engelse tekst toe."
+        "Je bent een Visuele Zoekassistent voor The Sting. Wanneer een gebruiker een afbeelding uploadt: "
+        "1. De tool 'find_similar_items' detecteert automatisch alle kledingstukken. "
+        "2. Als er meerdere items zijn en de gebruiker heeft niet specifiek aangegeven wat ze zoeken, "
+        "zal de tool je vragen om verduidelijking. "
+        "3. Zodra het item duidelijk is, wordt de afbeelding bijgesneden om tekst/knoppen te verwijderen "
+        "en wordt de zoekopdracht uitgevoerd. "
+        "Reageer altijd VOLLEDIG in het Nederlands. Gebruik de output van de tool en wees behulpzaam bij het vragen naar verduidelijking."
     ),
     tools=[find_similar_items]
 )
