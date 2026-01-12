@@ -22,5 +22,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Applicatie kopiëren
 COPY . .
 
-# Startcommando
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "--timeout", "600", "--bind", ":8080", "app:app"]
+# Startcommando (Uvicorn direct voor 1-worker stabiliteit bij in-memory sessies)
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080", "--timeout-keep-alive", "600"]
