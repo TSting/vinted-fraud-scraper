@@ -4,42 +4,17 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-REQUIRED_VARS = [
-    "ECOM_INRIVER_API_KEY"
-]
-
 def get_config():
     """
     Validates and returns configuration from environment variables.
     """
     config = {}
-    missing_vars = []
-
-    for var in REQUIRED_VARS:
-        value = os.getenv(var)
-        config[var] = value
-        if not value:
-            missing_vars.append(var)
-    config["IN_RIVER_BASE_URL"] = os.getenv("IN_RIVER_BASE_URL", "https://api.inriver.com")
-
-    if missing_vars:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
-    # Optional variables with defaults
-    # Optional variables with defaults
-    config["INRIVER_IMAGE_FIELD"] = os.getenv("INRIVER_IMAGE_FIELD", "MainImage")
-    config["BATCH_SIZE"] = int(os.getenv("BATCH_SIZE", "500"))
     
     # GCP Config
     config["GOOGLE_CLOUD_PROJECT"] = os.getenv("GOOGLE_CLOUD_PROJECT") or "ecom-agents"
     config["VERTEX_LOCATION"] = os.getenv("VERTEX_LOCATION", "europe-west1")
-    config["FIRESTORE_DATABASE"] = os.getenv("FIRESTORE_DATABASE", "product")
-    config["FIRESTORE_PRODUCTS_COLLECTION"] = os.getenv("FIRESTORE_PRODUCTS_COLLECTION", "products")
-    config["FIRESTORE_PROGRESS_COLLECTION"] = os.getenv("FIRESTORE_PROGRESS_COLLECTION", "batchProgress")
-    config["FIRESTORE_ERRORS_COLLECTION"] = os.getenv("FIRESTORE_ERRORS_COLLECTION", "processingErrors")
     
-    # InRiver Filters
-    config["INRIVER_FILTER_FORMULA"] = os.getenv("INRIVER_FILTER_FORMULA", "C")
-    config["INRIVER_FILTER_MIN_YEAR"] = int(os.getenv("INRIVER_FILTER_MIN_YEAR", "2025"))
+    # Vinted Search URL (Optional override)
+    config["VINTED_SEARCH_URL"] = os.getenv("VINTED_SEARCH_URL", "https://www.vinted.nl/catalog?status_ids%5B%5D=6&page=1&time=1768305966&brand_ids%5B%5D=40883&search_by_image_uuid=&order=newest_first")
     
     return config
