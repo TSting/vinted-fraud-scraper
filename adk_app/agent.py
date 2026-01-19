@@ -76,13 +76,20 @@ def get_vinted_newest_item_screenshot(tool_context=None) -> str:
         if loop.is_running():
             # If we are already in a loop (like ADK's), run it in a separate thread
             import threading
-            from concurrent.futures import ThreadPoolExecutor
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
             
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, capture_newest_vinted_item_screenshot())
-                screenshot_path, item_url = future.result()
+                try:
+                    # Set a 120 second timeout to prevent indefinite waiting
+                    screenshot_path, item_url = future.result(timeout=120)
+                except FutureTimeoutError:
+                    return "De actie kon niet worden voltooid vanwege een time-out. De seller validatie duurt langer dan verwacht. Probeer het later nog eens."
         else:
             screenshot_path, item_url = asyncio.run(capture_newest_vinted_item_screenshot())
+        
+        if screenshot_path is None or item_url is None:
+            return "Ik heb alle 'Nieuw met prijskaartje' Costes items van de afgelopen 24 uur gecontroleerd, maar helaas: geen enkele verkoper van deze items heeft voldoende andere nieuwe Costes items te koop staan (minimaal 2 vereist). Er is daarom geen screenshot gemaakt."
         
         return f"Ik heb het nieuwste Costes item op Vinted geopend: {item_url}\n\nDe screenshot is opgeslagen in de map `vinted_screenshots` met de naam `{os.path.basename(screenshot_path)}`.\n\n*(Opmerking: Vanwege lokale beperkingen kan ik de afbeelding hier niet direct tonen, maar ik heb de actie succesvol uitgevoerd.)*"
     except Exception as e:
