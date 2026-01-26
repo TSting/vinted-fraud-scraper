@@ -81,15 +81,15 @@ def get_vinted_newest_item_screenshot(tool_context=None) -> str:
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, capture_newest_vinted_item_screenshot())
                 try:
-                    # Set a 120 second timeout to prevent indefinite waiting
-                    screenshot_path, item_url = future.result(timeout=120)
+                    # Set a 600 second (10 min) timeout to allow thorough scanning
+                    screenshot_path, item_url = future.result(timeout=600)
                 except FutureTimeoutError:
-                    return "De actie kon niet worden voltooid vanwege een time-out. De seller validatie duurt langer dan verwacht. Probeer het later nog eens."
+                    return "De actie kon niet worden voltooid vanwege een time-out. De 24-uurs scan duurt langer dan verwacht (max 10 min). Probeer het later nog eens."
         else:
             screenshot_path, item_url = asyncio.run(capture_newest_vinted_item_screenshot())
         
         if screenshot_path is None or item_url is None:
-            return "Ik heb alle 'Nieuw met prijskaartje' Costes items van de afgelopen 24 uur gecontroleerd, maar helaas: geen enkele verkoper van deze items heeft voldoende andere nieuwe Costes items te koop staan (minimaal 2 vereist). Er is daarom geen screenshot gemaakt."
+            return "Ik heb de feed van de afgelopen 24 uur gescand op 'Nieuw met prijskaartje' Costes items. Ik heb per item de verkoper genoteerd, maar geen enkele verkoper gevonden die in deze periode 3 of meer items heeft geüpload (deze match + 2 andere). Daarom is er geen screenshot gemaakt."
         
         return f"Ik heb het nieuwste Costes item op Vinted geopend: {item_url}\n\nDe screenshot is opgeslagen in de map `vinted_screenshots` met de naam `{os.path.basename(screenshot_path)}`.\n\n*(Opmerking: Vanwege lokale beperkingen kan ik de afbeelding hier niet direct tonen, maar ik heb de actie succesvol uitgevoerd.)*"
     except Exception as e:

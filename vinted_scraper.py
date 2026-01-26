@@ -16,89 +16,6 @@ except ImportError:
 
 VINTED_SEARCH_URL = "https://www.vinted.nl/catalog?status_ids%5B%5D=6&page=1&time=1768305966&brand_ids%5B%5D=40883&search_by_image_uuid=&order=newest_first"
 
-async def check_seller_has_multiple_costes_items(page, min_other_items: int = 2):
-    """
-    Checks if the seller of the current item has at least min_other_items other Costes items.
-    
-    Args:
-        page: Playwright page object (should be on a product detail page)
-        min_other_items: Minimum number of OTHER Costes items the seller should have (default: 2)
-    
-    Returns:
-        bool: True if seller has enough items, False otherwise
-    """
-    try:
-        print(f"Checking if seller has at least {min_other_items} other Costes items...")
-        
-        # Find the seller profile link on the product page
-        # We need to be more specific to avoid signup links
-        seller_link_selectors = [
-            'a.details-list__item-link[href*="/member/"]',  # More specific selector
-            'a[href*="/member/"]:not([href*="signup"])',    # Exclude signup links
-            '[data-testid="user-profile-link"]',
-            'a.user-login'
-        ]
-        
-        seller_url = None
-        for selector in seller_link_selectors:
-            try:
-                # Get all matching elements
-                elements = await page.locator(selector).all()
-                for element in elements:
-                    url = await element.get_attribute('href')
-                    # Filter out signup and invalid URLs
-                    if url and '/member/' in url and 'signup' not in url:
-                        seller_url = url
-                        print(f"Found seller profile link: {seller_url}")
-                        break
-                if seller_url:
-                    break
-            except:
-                continue
-        
-        if not seller_url:
-            print("Warning: Could not find seller profile link")
-            return False
-        
-        # Make sure we have a full URL
-        if seller_url.startswith('/'):
-            seller_url = f"https://www.vinted.nl{seller_url}"
-        
-        # Navigate to seller's profile with Costes brand filter AND 'Nieuw met prijskaartje' status
-        # Brand ID 40883 is Costes
-        # Status ID 6 is 'Nieuw met prijskaartje' (New with tags)
-        seller_costes_url = f"{seller_url}/items?brand_ids[]=40883&status_ids[]=6"
-        print(f"Navigating to seller's Costes items (Nieuw met prijskaartje): {seller_costes_url}")
-        
-        await page.goto(seller_costes_url, wait_until="load")
-        await asyncio.sleep(1)
-        
-        # Check for "No items" text first
-        # Vinted often explains "Geen artikelen gevonden" or "No items found"
-        content_text = await page.content()
-        if "Geen artikelen gevonden" in content_text or "No items found" in content_text:
-             print("Seller has 0 matching items (found 'No items' text).")
-             return False
-
-        # Count the number of Costes items
-        items = await page.locator('[data-testid="grid-item"]').all()
-        item_count = len(items)
-        
-        print(f"Seller has {item_count} Costes item(s) with 'Nieuw met prijskaartje' status")
-        
-        # We need at least min_other_items + 1 (the current item we're looking at)
-        required_total = min_other_items + 1
-        
-        if item_count >= required_total:
-            print(f"✓ Seller has {item_count} 'Nieuw met prijskaartje' items (>= {required_total} required). Proceeding.")
-            return True
-        else:
-            print(f"✗ Seller only has {item_count} items (< {required_total} required). Skipping.")
-            return False
-            
-    except Exception as e:
-        print(f"Error checking seller items: {e}")
-        return False
 
 async def check_is_within_24h(page):
     """
@@ -159,12 +76,97 @@ async def check_is_within_24h(page):
         print(f"Error checking time: {e}")
         return True, "Error" # Fail open
 
+import json
+
+HISTORY_FILE = "seller_history.json"
+
+def load_seller_history():
+    """Loads the seller history from a JSON file."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading history: {e}")
+    return {"sellers": {}}
+
+def save_seller_history(history):
+    """Saves the seller history to a JSON file."""
+    try:
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(history, f, indent=4)
+    except Exception as e:
+        print(f"Error saving history: {e}")
+
+def cleanup_seller_history(history):
+    """Removes items older than 24 hours from the history."""
+    now = time.time()
+    cutoff = now - (24 * 3600)
+    
+    new_sellers = {}
+    for seller, items in history.get("sellers", {}).items():
+        # Keep only items added within the last 24h
+        valid_items = [item for item in items if item.get("added_at", 0) > cutoff]
+        if valid_items:
+            new_sellers[seller] = valid_items
+            
+    history["sellers"] = new_sellers
+    return history
+
+async def get_seller_name(page):
+    """
+    Extracts the seller's username from the product page.
+    """
+    try:
+        # Strategy 1: Specific data-testid (Reliable but potentially delayed)
+        # Wait a bit for the element to be present
+        selectors = [
+            '[data-testid="profile-username"]',
+            '[data-testid="item-owner-name"]',
+            '.seller-details__name',
+            'a[href*="/member/"] span'
+        ]
+        
+        for selector in selectors:
+            try:
+                # Use a short wait to ensure JS has rendered the name
+                el = page.locator(selector).first
+                await el.wait_for(state="visible", timeout=3000)
+                name = await el.inner_text()
+                if name and len(name.strip()) > 1:
+                    # Clean up: sometimes it has reviews or " (90)"
+                    return name.splitlines()[0].split('(')[0].strip()
+            except:
+                continue
+        
+        # Strategy 2: Extract from profile link URL
+        profile_links = await page.locator('a[href*="/member/"]').all()
+        for link in profile_links:
+            href = await link.get_attribute('href')
+            if href and "signup" not in href and "login" not in href:
+                parts = href.strip('/').split('/')
+                if len(parts) >= 2 and parts[0] == 'member':
+                    member_part = parts[1]
+                    if '-' in member_part:
+                        return member_part.split('-', 1)[1]
+                    return member_part 
+
+        return None
+    except Exception as e:
+        print(f"Error extracting seller name: {e}")
+        return None
+
 async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screenshots"):
     """
     Goes to the Vinted search URL, opens items from the last 24h, and takes a screenshot if seller matches.
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    # 0. Load and cleanup persistent history
+    history = load_seller_history()
+    history = cleanup_seller_history(history)
+    print(f"Loaded history for {len(history['sellers'])} sellers.")
 
     timestamp = int(time.time())
     screenshot_path = os.path.join(output_dir, f"vinted_item_{timestamp}.png")
@@ -235,12 +237,14 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                 return None, None
 
             # 4. Iterate through items
+            print(f"Scanning up to {len(candidate_urls)} items from the last 24h...")
+            
             success_match = False
             final_screenshot_path = None
             final_product_url = None
 
             for idx, product_url in enumerate(candidate_urls):
-                print(f"\n--- Checking Item {idx+1}/{len(candidate_urls)} ---")
+                print(f"\n--- Scanning Item {idx+1}/{len(candidate_urls)} ---")
                 print(f"URL: {product_url}")
                 
                 try:
@@ -252,25 +256,42 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                         print("Page load timeout, skipping...")
                         continue
 
-                    # 4.4. NEW: Check 24h time limit
+                    # 4.1 Check 24h time limit
                     is_fresh, time_text = await check_is_within_24h(page)
                     if not is_fresh:
-                        print(f"⛔ Item is too old ({time_text}). Stopping search as list is sorted by date.")
-                        break # STOP the loop completely
+                        print(f"⛔ Item is too old ({time_text}). Stopping scan as list is sorted by date.")
+                        break # STOP the loop
                     
-                    print(f"✓ Item is recent ({time_text}). Checking seller...")
+                    print(f"✓ Item is recent ({time_text}).")
 
-                    # 4.5. Check seller
-                    has_enough_items = await check_seller_has_multiple_costes_items(page, min_other_items=2)
-                    
-                    if has_enough_items:
-                        print("✅ MATCH FOUND! Seller meets criteria. Proceeding to screenshot.")
+                    # 4.2 Get Seller Name
+                    seller_name = await get_seller_name(page)
+                    if not seller_name:
+                        print("Could not identify seller. Skipping.")
+                        continue
                         
-                        if page.url != product_url:
-                            print("Returning to product page...")
-                            await page.goto(product_url, wait_until="load")
-                            await asyncio.sleep(1)
-
+                    print(f"Seller: {seller_name}")
+                    
+                    # 4.3 Update History
+                    if seller_name not in history["sellers"]:
+                        history["sellers"][seller_name] = []
+                    
+                    # Add current item to history if not exists
+                    exists = any(item["url"] == product_url for item in history["sellers"][seller_name])
+                    if not exists:
+                        history["sellers"][seller_name].append({
+                            "url": product_url,
+                            "added_at": time.time()
+                        })
+                        print(f"Item added to history for {seller_name}.")
+                    
+                    seller_count = len(history["sellers"][seller_name])
+                    print(f"Seller '{seller_name}' now has {seller_count} detected items in rolling 24h.")
+                    
+                    # 4.4 Check Criteria (Total >= 3 items in history)
+                    if seller_count >= 3:
+                        print(f"✅ MATCH FOUND! Seller '{seller_name}' has {seller_count} items. Proceeding to screenshot.")
+                        
                         # Take screenshot
                         print(f"Taking screenshot: {screenshot_path}")
                         await asyncio.sleep(2)
@@ -312,18 +333,18 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                         success_match = True
                         final_screenshot_path = screenshot_path
                         final_product_url = product_url
+                        # Stop scanning after a match is found and screenshot taken
                         break 
                     
-                    else:
-                        print("❌ Seller criteria NOT met. Checking next item...")
-                        continue
-
                 except Exception as e:
                     print(f"Error processing item {idx}: {e}")
                     continue
 
+            # Save updated history before exiting
+            save_seller_history(history)
+
             if not success_match:
-                 print("\nChecked all candidates. No matching items found in the last 24h.")
+                 print("\nScanned all recent items. No seller found with >= 3 items in rolling 24h.")
                  await browser.close()
                  return None, None
             
