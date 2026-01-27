@@ -113,10 +113,13 @@ def cleanup_seller_history(history):
     history["sellers"] = new_sellers
     return history
 
-async def get_seller_name(page):
+async def get_seller_info(page):
     """
-    Extracts the seller's username from the product page.
+    Extracts the seller's username and profile URL from the product page.
+    Returns: (name, url)
     """
+    seller_name = None
+    seller_url = None
     try:
         # Strategy 1: Specific data-testid (Reliable but potentially delayed)
         # Wait a bit for the element to be present
@@ -124,7 +127,7 @@ async def get_seller_name(page):
             '[data-testid="profile-username"]',
             '[data-testid="item-owner-name"]',
             '.seller-details__name',
-            'a[href*="/member/"] span'
+            'a[href*="/member/"]'
         ]
         
         for selector in selectors:
@@ -132,29 +135,46 @@ async def get_seller_name(page):
                 # Use a short wait to ensure JS has rendered the name
                 el = page.locator(selector).first
                 await el.wait_for(state="visible", timeout=3000)
+                
+                # Check if it's a link to get URL
+                href = await el.get_attribute('href')
+                if not href:
+                    # Look for parent link or link inside
+                    link_el = page.locator(f'a:has({selector}), {selector} a').first
+                    if await link_el.count() > 0:
+                        href = await link_el.get_attribute('href')
+
+                if href:
+                    seller_url = f"https://www.vinted.nl{href}" if href.startswith('/') else href
+
                 name = await el.inner_text()
                 if name and len(name.strip()) > 1:
                     # Clean up: sometimes it has reviews or " (90)"
-                    return name.splitlines()[0].split('(')[0].strip()
+                    seller_name = name.splitlines()[0].split('(')[0].strip()
+                    if seller_name and seller_url:
+                        return seller_name, seller_url
             except:
                 continue
         
-        # Strategy 2: Extract from profile link URL
+        # Strategy 2: Extract from profile link URL specifically
         profile_links = await page.locator('a[href*="/member/"]').all()
         for link in profile_links:
             href = await link.get_attribute('href')
             if href and "signup" not in href and "login" not in href:
+                seller_url = f"https://www.vinted.nl{href}" if href.startswith('/') else href
                 parts = href.strip('/').split('/')
                 if len(parts) >= 2 and parts[0] == 'member':
                     member_part = parts[1]
                     if '-' in member_part:
-                        return member_part.split('-', 1)[1]
-                    return member_part 
+                        seller_name = member_part.split('-', 1)[1]
+                    else:
+                        seller_name = member_part
+                    return seller_name, seller_url
 
-        return None
+        return seller_name, seller_url
     except Exception as e:
-        print(f"Error extracting seller name: {e}")
-        return None
+        print(f"Error extracting seller info: {e}")
+        return None, None
 
 async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screenshots"):
     """
@@ -264,13 +284,13 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                     
                     print(f"✓ Item is recent ({time_text}).")
 
-                    # 4.2 Get Seller Name
-                    seller_name = await get_seller_name(page)
+                    # 4.2 Get Seller Info
+                    seller_name, seller_url = await get_seller_info(page)
                     if not seller_name:
                         print("Could not identify seller. Skipping.")
                         continue
                         
-                    print(f"Seller: {seller_name}")
+                    print(f"Seller: {seller_name} ({seller_url})")
                     
                     # 4.3 Update History
                     if seller_name not in history["sellers"]:
@@ -325,17 +345,21 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                             except:
                                 continue
 
+                        if target_element:
                             await target_element.scroll_into_view_if_needed()
                             await asyncio.sleep(1)
                             await target_element.screenshot(path=current_screenshot_path)
                         else:
                             await page.screenshot(path=current_screenshot_path, full_page=False)
+
                         success_match = True
                         match_count += 1
                         all_matches.append({
                             "url": product_url,
                             "screenshot_path": current_screenshot_path,
                             "seller_name": seller_name,
+                            "seller_url": seller_url,
+                            "seller_count": seller_count,
                             "item_id": item_id
                         })
                         # Continue scanning other items

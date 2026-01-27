@@ -92,11 +92,25 @@ def get_vinted_newest_item_screenshot(tool_context=None) -> str:
             return "Ik heb de feed van de afgelopen 24 uur gescand op 'Nieuw met prijskaartje' Costes items. Ik heb per item de verkoper genoteerd, maar geen enkele verkoper gevonden die in deze periode 3 of meer items heeft geüpload (deze match + 2 andere). Daarom is er geen screenshot gemaakt."
         
         
-        response = f"Ik heb de afgelopen 24 uur gescand en **{len(matches)} matches** gevonden:\n\n"
-        for i, match in enumerate(matches, 1):
-            response += f"{i}. **Item:** {match['url']}\n"
-            response += f"   - **Verkoper:** {match['seller_name']}\n"
-            response += f"   - **Screenshot:** `{os.path.basename(match['screenshot_path'])}`\n\n"
+        # Group matches by seller
+        grouped_sellers = {}
+        for match in matches:
+            s_name = match['seller_name']
+            if s_name not in grouped_sellers:
+                grouped_sellers[s_name] = {
+                    "url": match['seller_url'],
+                    "items": []
+                }
+            grouped_sellers[s_name]["items"].append(match)
+        
+        response = f"Ik heb de afgelopen 24 uur gescand en **{len(matches)} matches** gevonden, verdeeld over **{len(grouped_sellers)} verkopers**:\n\n"
+        
+        for s_name, data in grouped_sellers.items():
+            response += f"### Verkoper: [{s_name}]({data['url']}) ({len(data['items'])} items gevonden)\n"
+            for j, item in enumerate(data['items'], 1):
+                response += f"{j}. **Item:** {item['url']}\n"
+                response += f"   - **Screenshot:** `{os.path.basename(item['screenshot_path'])}`\n"
+            response += "\n"
         
         response += "*(Opmerking: Vanwege lokale beperkingen kan ik de afbeeldingen hier niet direct tonen, maar ze zijn opgeslagen in de map `vinted_screenshots`.)*"
         return response
@@ -116,7 +130,7 @@ vinted_fraud_agent = LlmAgent(
         "Ga NOOIT zelf antwoorden dat je bezig bent of dat de actie is voltooid zonder de tool ECHT aan te roepen.\n\n"
         "Als je de tool aanroept, wacht dan op het resultaat. Gebruik NOOIT placeholders zoals '[insert URL here]'. "
         "Geef alleen de URL en informatie door die je van de tool terugkrijgt.\n\n"
-        "Reageer altijd in het Nederlands. Bevestig wanneer de actie is voltooid en geef de URL van het item door."
+        "Reageer altijd in het Nederlands. Gebruik de informatie uit de tool om een compleet overzicht te geven van ALLE gevonden matches, gegroepeerd per verkoper, inclusief de bijbehorende URL's en de namen van de screenshots. Neem de volledige output van de tool over zonder deze samen te vatten."
     ),
     tools=[get_vinted_newest_item_screenshot]
 )
