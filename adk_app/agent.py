@@ -82,16 +82,24 @@ def get_vinted_newest_item_screenshot(tool_context=None) -> str:
                 future = executor.submit(asyncio.run, capture_newest_vinted_item_screenshot())
                 try:
                     # Set a 600 second (10 min) timeout to allow thorough scanning
-                    screenshot_path, item_url = future.result(timeout=600)
+                    matches = future.result(timeout=600)
                 except FutureTimeoutError:
                     return "De actie kon niet worden voltooid vanwege een time-out. De 24-uurs scan duurt langer dan verwacht (max 10 min). Probeer het later nog eens."
         else:
-            screenshot_path, item_url = asyncio.run(capture_newest_vinted_item_screenshot())
+            matches = asyncio.run(capture_newest_vinted_item_screenshot())
         
-        if screenshot_path is None or item_url is None:
+        if not matches:
             return "Ik heb de feed van de afgelopen 24 uur gescand op 'Nieuw met prijskaartje' Costes items. Ik heb per item de verkoper genoteerd, maar geen enkele verkoper gevonden die in deze periode 3 of meer items heeft geüpload (deze match + 2 andere). Daarom is er geen screenshot gemaakt."
         
-        return f"Ik heb het nieuwste Costes item op Vinted geopend: {item_url}\n\nDe screenshot is opgeslagen in de map `vinted_screenshots` met de naam `{os.path.basename(screenshot_path)}`.\n\n*(Opmerking: Vanwege lokale beperkingen kan ik de afbeelding hier niet direct tonen, maar ik heb de actie succesvol uitgevoerd.)*"
+        
+        response = f"Ik heb de afgelopen 24 uur gescand en **{len(matches)} matches** gevonden:\n\n"
+        for i, match in enumerate(matches, 1):
+            response += f"{i}. **Item:** {match['url']}\n"
+            response += f"   - **Verkoper:** {match['seller_name']}\n"
+            response += f"   - **Screenshot:** `{os.path.basename(match['screenshot_path'])}`\n\n"
+        
+        response += "*(Opmerking: Vanwege lokale beperkingen kan ik de afbeeldingen hier niet direct tonen, maar ze zijn opgeslagen in de map `vinted_screenshots`.)*"
+        return response
     except Exception as e:
         error_msg = f"Er is een fout opgetreden bij het scrapen van Vinted: {type(e).__name__}: {str(e)}"
         logger.error(error_msg)

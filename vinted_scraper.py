@@ -169,7 +169,7 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
     print(f"Loaded history for {len(history['sellers'])} sellers.")
 
     timestamp = int(time.time())
-    screenshot_path = os.path.join(output_dir, f"vinted_item_{timestamp}.png")
+    # Note: screenshot_path will now be generated per-item to ensure uniqueness
 
     async with async_playwright() as p:
         # Launch browser
@@ -240,8 +240,8 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
             print(f"Scanning up to {len(candidate_urls)} items from the last 24h...")
             
             success_match = False
-            final_screenshot_path = None
-            final_product_url = None
+            match_count = 0
+            all_matches = []
 
             for idx, product_url in enumerate(candidate_urls):
                 print(f"\n--- Scanning Item {idx+1}/{len(candidate_urls)} ---")
@@ -290,10 +290,12 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                     
                     # 4.4 Check Criteria (Total >= 3 items in history)
                     if seller_count >= 3:
-                        print(f"✅ MATCH FOUND! Seller '{seller_name}' has {seller_count} items. Proceeding to screenshot.")
+                        # Generate unique screenshot path for this specific item
+                        item_id = product_url.split('/items/')[1].split('-')[0] if '/items/' in product_url else str(int(time.time()))
+                        current_screenshot_path = os.path.join(output_dir, f"vinted_item_{item_id}.png")
                         
                         # Take screenshot
-                        print(f"Taking screenshot: {screenshot_path}")
+                        print(f"Taking screenshot: {current_screenshot_path}")
                         await asyncio.sleep(2)
                         
                         await page.add_style_tag(content="""
@@ -323,18 +325,21 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                             except:
                                 continue
 
-                        if target_element:
                             await target_element.scroll_into_view_if_needed()
                             await asyncio.sleep(1)
-                            await target_element.screenshot(path=screenshot_path)
+                            await target_element.screenshot(path=current_screenshot_path)
                         else:
-                            await page.screenshot(path=screenshot_path, full_page=False)
-                        
+                            await page.screenshot(path=current_screenshot_path, full_page=False)
                         success_match = True
-                        final_screenshot_path = screenshot_path
-                        final_product_url = product_url
-                        # Stop scanning after a match is found and screenshot taken
-                        break 
+                        match_count += 1
+                        all_matches.append({
+                            "url": product_url,
+                            "screenshot_path": current_screenshot_path,
+                            "seller_name": seller_name,
+                            "item_id": item_id
+                        })
+                        # Continue scanning other items
+                        print(f"Match recorded for {seller_name}. Continuing scan...")
                     
                 except Exception as e:
                     print(f"Error processing item {idx}: {e}")
@@ -346,9 +351,10 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
             if not success_match:
                  print("\nScanned all recent items. No seller found with >= 3 items in rolling 24h.")
                  await browser.close()
-                 return None, None
+                 return []
             
-            return final_screenshot_path, final_product_url
+            print(f"\nScan complete. Found {match_count} matches.")
+            return all_matches
 
         except Exception as e:
             print(f"Error during scraping: {e}")
