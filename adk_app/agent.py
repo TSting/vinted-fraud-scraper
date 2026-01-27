@@ -81,10 +81,10 @@ def get_vinted_newest_item_screenshot(tool_context=None) -> str:
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, capture_newest_vinted_item_screenshot())
                 try:
-                    # Set a 600 second (10 min) timeout to allow thorough scanning
-                    matches = future.result(timeout=600)
+                    # Set a 1200 second (20 min) timeout to allow thorough scanning of 100+ items
+                    matches = future.result(timeout=1200)
                 except FutureTimeoutError:
-                    return "De actie kon niet worden voltooid vanwege een time-out. De 24-uurs scan duurt langer dan verwacht (max 10 min). Probeer het later nog eens."
+                    return "De actie kon niet worden voltooid vanwege een time-out. De 24-uurs scan duurt langer dan verwacht (max 20 min). Probeer het later nog eens."
         else:
             matches = asyncio.run(capture_newest_vinted_item_screenshot())
         
@@ -109,6 +109,9 @@ def get_vinted_newest_item_screenshot(tool_context=None) -> str:
             response += f"### Verkoper: [{s_name}]({data['url']}) ({len(data['items'])} items gevonden)\n"
             for j, item in enumerate(data['items'], 1):
                 response += f"{j}. **Item:** {item['url']}\n"
+                response += f"   - **Maat:** {item['size']}\n"
+                response += f"   - **Kleur:** {item['color']}\n"
+                response += f"   - **Product ID:** {item['product_id']}\n"
                 response += f"   - **Screenshot:** `{os.path.basename(item['screenshot_path'])}`\n"
             response += "\n"
         

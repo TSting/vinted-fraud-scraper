@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+import re
 from playwright.async_api import async_playwright
 try:
     from playwright_stealth import stealth_async
@@ -176,6 +177,65 @@ async def get_seller_info(page):
         print(f"Error extracting seller info: {e}")
         return None, None
 
+async def get_item_details(page):
+    """
+    Extracts Size, Color and Product ID (if available) from the item page.
+    """
+    details = {
+        "size": "Onbekend",
+        "color": "Onbekend",
+        "product_id": "Onbekend"
+    }
+    try:
+        # 1. Attributes from the details list
+        # Use a shorter timeout to avoid hanging
+        try:
+            attr_elements = await page.locator('.details-list__item').all()
+            for el in attr_elements:
+                try:
+                    text = await el.inner_text(timeout=5000)
+                    if '\n' in text:
+                        key, value = text.split('\n', 1)
+                        key_l = key.lower()
+                        if 'maat' in key_l or 'size' in key_l:
+                            details["size"] = value.strip()
+                        elif 'kleur' in key_l or 'color' in key_l:
+                            details["color"] = value.strip()
+                except:
+                    continue
+        except Exception as e:
+            print(f"Warning: Could not extract attributes: {e}")
+
+        # 2. Try to find Product ID/Article Code in description
+        try:
+            # Check for description
+            desc_loc = page.locator('[data-testid="item-description"]')
+            description = await desc_loc.inner_text(timeout=5000)
+            
+            # Check for title
+            title_loc = page.locator('h1')
+            title = await title_loc.inner_text(timeout=5000)
+            
+            combined_text = f"{title} {description}"
+            
+            # Look for patterns like "Art: 1234567" or just 7-10 digit numbers
+            # Common Costes patterns: 1234567, 1.23.4.5678, or 123456-123
+            potential_ids = re.findall(r'\b\d{7,10}\b|\b\d{6}-\d{3}\b', combined_text)
+            if potential_ids:
+                details["product_id"] = potential_ids[0]
+            else:
+                # Check for dotted format
+                dotted_ids = re.findall(r'\b\d\.\d{2}\.\d\.\d{4}\b', combined_text)
+                if dotted_ids:
+                    details["product_id"] = dotted_ids[0]
+        except Exception as e:
+            print(f"Warning: Could not extract ID from description: {e}")
+
+    except Exception as e:
+        print(f"Error in get_item_details: {e}")
+    
+    return details
+
 async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screenshots"):
     """
     Goes to the Vinted search URL, opens items from the last 24h, and takes a screenshot if seller matches.
@@ -284,6 +344,9 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                     
                     print(f"✓ Item is recent ({time_text}).")
 
+                    # 4.1.b Get extra details
+                    item_details = await get_item_details(page)
+
                     # 4.2 Get Seller Info
                     seller_name, seller_url = await get_seller_info(page)
                     if not seller_name:
@@ -360,7 +423,10 @@ async def capture_newest_vinted_item_screenshot(output_dir: str = "vinted_screen
                             "seller_name": seller_name,
                             "seller_url": seller_url,
                             "seller_count": seller_count,
-                            "item_id": item_id
+                            "item_id": item_id,
+                            "size": item_details["size"],
+                            "color": item_details["color"],
+                            "product_id": item_details["product_id"]
                         })
                         # Continue scanning other items
                         print(f"Match recorded for {seller_name}. Continuing scan...")
